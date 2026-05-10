@@ -23,7 +23,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Aquí puedes buscar el usuario en la base de datos (Prisma) usando payload.sub o payload.email
     // para verificar que el usuario todavía existe y no ha sido desactivado.
     
-    // Lo que retornes aquí, Passport lo adjuntará automáticamente al objeto de la petición (req.user)
-    return { id: payload.sub, email: payload.email };
+    return { 
+      id: payload.sub, 
+      email: payload.email, 
+      companyId: payload.companyId, 
+      role: payload.role 
+    };
   }
 }

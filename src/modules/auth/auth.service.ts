@@ -29,16 +29,27 @@ export class AuthService {
 
     const user = await this.prisma.user.create({
       data: {
-        name: dto.name,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        gender: dto.gender,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        whatsapp: dto.whatsapp,
         email: dto.email,
         password: hashedPassword,
+        role: 'COMPANY_OWNER',
+        company: {
+          create: {
+            name: `Comercio de ${dto.firstName} ${dto.lastName}`,
+          },
+        },
       },
+      include: { company: true },
     });
 
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user);
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, email: user.email, role: user.role, company: user.company },
       access_token: token,
     };
   }
@@ -46,6 +57,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      include: { company: true },
     });
 
     if (!user) {
@@ -58,15 +70,20 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user);
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, email: user.email, role: user.role, company: user.company },
       access_token: token,
     };
   }
 
-  private generateToken(userId: string, email: string): string {
-    return this.jwtService.sign({ sub: userId, email });
+  private generateToken(user: any): string {
+    return this.jwtService.sign({ 
+      sub: user.id, 
+      email: user.email,
+      companyId: user.companyId,
+      role: user.role 
+    });
   }
 }

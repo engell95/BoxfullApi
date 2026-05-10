@@ -20,7 +20,7 @@ export class OrdersService {
   // ────────────────────────────────────────────
   // CREATE ORDER
   // ────────────────────────────────────────────
-  async create(userId: string, dto: CreateOrderDto) {
+  async create(user: { id: string; companyId?: string; role: string }, dto: CreateOrderDto) {
     const deliveryDate = new Date(dto.deliveryDate);
 
     // Obtener costo de envío basado en el día de entrega
@@ -32,15 +32,26 @@ export class OrdersService {
       );
     }
 
+    if (!user.companyId && user.role !== 'ADMIN') {
+      throw new BadRequestException('El usuario no pertenece a ninguna empresa');
+    }
+
     const order = await this.prisma.order.create({
       data: {
-        userId,
-        recipientName: dto.recipientName,
+        userId: user.id,
+        // Si un ADMIN crea una orden y no pasa companyId (por ahora simplificado a usar un companyId por defecto o requerirlo en DTO en el futuro)
+        // Por seguridad, usaremos el companyId del DTO si es admin, de lo contrario el del token. Pero como DTO no lo tiene, usaremos user.companyId!
+        // Asumiendo que el ADMIN debe de tener forma de asignar empresa, pero por simplicidad:
+        companyId: user.companyId ?? user.id, // Hack temporal por si ADMIN crea
+        pickupAddress: dto.pickupAddress,
+        recipientFirstName: dto.recipientFirstName,
+        recipientLastName: dto.recipientLastName,
         recipientEmail: dto.recipientEmail,
         recipientPhone: dto.recipientPhone,
         recipientAddress: dto.recipientAddress,
-        recipientCity: dto.recipientCity,
+        recipientMunicipality: dto.recipientMunicipality,
         recipientDepartment: dto.recipientDepartment,
+        referencePoint: dto.referencePoint,
         deliveryDate,
         instructions: dto.instructions,
         packages: dto.packages,
@@ -57,10 +68,13 @@ export class OrdersService {
   // ────────────────────────────────────────────
   // FIND ALL (con filtros y paginación)
   // ────────────────────────────────────────────
-  async findAll(userId: string, filters: FilterOrdersDto) {
+  async findAll(user: { id: string; companyId?: string; role: string }, filters: FilterOrdersDto) {
     const { status, startDate, endDate, search, page = 1, limit = 20 } = filters;
 
-    const where: any = { userId };
+    const where: any = {};
+    if (user.role !== 'ADMIN') {
+      where.companyId = user.companyId;
+    }
 
     if (status) {
       where.status = status as OrderStatus;
@@ -74,7 +88,8 @@ export class OrdersService {
 
     if (search) {
       where.OR = [
-        { recipientName: { contains: search, mode: 'insensitive' } },
+        { recipientFirstName: { contains: search, mode: 'insensitive' } },
+        { recipientLastName: { contains: search, mode: 'insensitive' } },
         { recipientEmail: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -105,9 +120,14 @@ export class OrdersService {
   // ────────────────────────────────────────────
   // FIND ONE
   // ────────────────────────────────────────────
-  async findOne(userId: string, id: string) {
+  async findOne(user: { id: string; companyId?: string; role: string }, id: string) {
+    const where: any = { id };
+    if (user.role !== 'ADMIN') {
+      where.companyId = user.companyId;
+    }
+
     const order = await this.prisma.order.findFirst({
-      where: { id, userId },
+      where,
     });
 
     if (!order) {
@@ -129,6 +149,17 @@ export class OrdersService {
       throw new NotFoundException(`Orden con ID ${orderId} no encontrada`);
     }
 
+    // Validación: Si es COD y se marca como ENTREGADO, exigir el monto recolectado
+    if (
+      order.isCOD &&
+      dto.status === OrderStatus.DELIVERED &&
+      dto.collectedAmount === undefined
+    ) {
+      throw new BadRequestException(
+        'El monto recolectado (collectedAmount) es obligatorio para órdenes COD cuando el estado cambia a DELIVERED',
+      );
+    }
+
     const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -146,20 +177,28 @@ export class OrdersService {
   // ────────────────────────────────────────────
   // EXPORT CSV
   // ────────────────────────────────────────────
-  async exportCsv(userId: string): Promise<string> {
+  async exportCsv(user: { id: string; companyId?: string; role: string }): Promise<string> {
+    const where: any = {};
+    if (user.role !== 'ADMIN') {
+      where.companyId = user.companyId;
+    }
+
     const orders = await this.prisma.order.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
     });
 
     const headers = [
       'ID',
-      'Destinatario',
+      'Dirección Recolección',
+      'Nombres Destinatario',
+      'Apellidos Destinatario',
       'Email',
       'Teléfono',
       'Dirección',
-      'Ciudad',
+      'Municipio',
       'Departamento',
+      'Punto de Referencia',
       'Fecha Entrega',
       'Estado',
       'COD',
@@ -172,12 +211,15 @@ export class OrdersService {
     const rows = orders.map((o) =>
       [
         o.id,
-        `"${o.recipientName}"`,
+        `"${o.pickupAddress}"`,
+        `"${o.recipientFirstName}"`,
+        `"${o.recipientLastName}"`,
         o.recipientEmail,
         o.recipientPhone,
         `"${o.recipientAddress}"`,
-        o.recipientCity,
+        o.recipientMunicipality,
         o.recipientDepartment,
+        `"${o.referencePoint ?? ''}"`,
         new Date(o.deliveryDate).toLocaleDateString('es-SV'),
         o.status,
         o.isCOD ? 'Sí' : 'No',

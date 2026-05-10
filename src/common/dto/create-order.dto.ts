@@ -14,61 +14,69 @@ import {
 import { Type } from 'class-transformer';
 
 export class PackageDto {
-  @ApiProperty({ example: 'Ropa' })
+  @ApiProperty({ example: 'iPhone 14 pro Max' })
   @IsString()
   content: string;
 
-  @ApiProperty({ example: 2 })
-  @IsNumber()
-  @Min(1)
-  quantity: number;
-
-  @ApiProperty({ example: 1.5, description: 'Peso en kg' })
+  @ApiProperty({ example: 3, description: 'Peso en libras' })
   @IsNumber()
   @Min(0)
-  weight: number;
+  weightInLbs: number;
 
-  @ApiProperty({ example: 30, description: 'Ancho en cm' })
+  @ApiProperty({ example: 15, description: 'Ancho en cm' })
   @IsNumber()
   @Min(0)
   width: number;
 
-  @ApiProperty({ example: 20, description: 'Alto en cm' })
+  @ApiProperty({ example: 15, description: 'Alto en cm' })
   @IsNumber()
   @Min(0)
   height: number;
 
-  @ApiProperty({ example: 40, description: 'Largo en cm' })
+  @ApiProperty({ example: 15, description: 'Largo en cm' })
   @IsNumber()
   @Min(0)
   length: number;
 }
 
 export class CreateOrderDto {
-  // Destinatario
-  @ApiProperty({ example: 'María García' })
+  @ApiProperty({ example: 'Colonia Las Magnolias, calle militar 1, San Salvador' })
   @IsString()
-  recipientName: string;
+  pickupAddress: string;
 
-  @ApiProperty({ example: 'maria@example.com' })
+  // Destinatario
+  @ApiProperty({ example: 'Gabriela Reneé' })
+  @IsString()
+  recipientFirstName: string;
+
+  @ApiProperty({ example: 'Días López' })
+  @IsString()
+  recipientLastName: string;
+
+  @ApiProperty({ example: 'gabbydiaz@gmail.com' })
   @IsEmail()
   recipientEmail: string;
 
-  @ApiProperty({ example: '+503 7000 0000' })
+  @ApiProperty({ example: '+503 7777 7777' })
   @IsString()
   recipientPhone: string;
 
-  @ApiProperty({ example: 'Calle Principal #123' })
+  @ApiProperty({ example: 'Final 49 Av. Sur y Bulevar Los Próceres...' })
   @IsString()
   recipientAddress: string;
 
   @ApiProperty({ example: 'San Salvador' })
   @IsString()
-  recipientCity: string;
+  recipientMunicipality: string;
 
   @ApiProperty({ example: 'San Salvador' })
   @IsString()
   recipientDepartment: string;
+
+  @ApiPropertyOptional({ example: 'Cerca de redondel Arbol de la Paz' })
+  @IsOptional()
+  @IsString()
+  referencePoint?: string;
 
   // Detalles de entrega
   @ApiProperty({ example: '2024-12-25T10:00:00.000Z' })

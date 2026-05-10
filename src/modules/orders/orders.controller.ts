@@ -36,10 +36,10 @@ export class OrdersController {
   @ApiOperation({ summary: 'Crear nueva orden de envío' })
   @ApiResponse({ status: 201, description: 'Orden creada exitosamente' })
   create(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Body() dto: CreateOrderDto,
   ) {
-    return this.ordersService.create(user.id, dto);
+    return this.ordersService.create(user, dto);
   }
 
   // ────────────────────────────────────────
@@ -49,14 +49,14 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Listar órdenes del usuario con filtros y paginación',
+    summary: 'Listar órdenes (filtradas por empresa si no es ADMIN)',
   })
   @ApiResponse({ status: 200, description: 'Listado de órdenes' })
   findAll(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Query() filters: FilterOrdersDto,
   ) {
-    return this.ordersService.findAll(user.id, filters);
+    return this.ordersService.findAll(user, filters);
   }
 
   // ────────────────────────────────────────
@@ -67,10 +67,10 @@ export class OrdersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Exportar órdenes como archivo CSV' })
   async exportCsv(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Res() res: Response,
   ) {
-    const csv = await this.ordersService.exportCsv(user.id);
+    const csv = await this.ordersService.exportCsv(user);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
@@ -90,10 +90,10 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Detalle de la orden' })
   @ApiResponse({ status: 404, description: 'Orden no encontrada' })
   findOne(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Param('id') id: string,
   ) {
-    return this.ordersService.findOne(user.id, id);
+    return this.ordersService.findOne(user, id);
   }
 
   // ────────────────────────────────────────

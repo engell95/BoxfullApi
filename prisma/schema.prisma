@@ -12,15 +12,47 @@ datasource db {
 // ─────────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────────
+enum Role {
+  ADMIN
+  COMPANY_OWNER
+  COMPANY_USER
+}
+
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String   @unique
-  password  String
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  firstName   String
+  lastName    String
+  gender      String?
+  dateOfBirth DateTime?
+  whatsapp    String?
+  email       String    @unique
+  password    String
+  role      Role     @default(COMPANY_USER)
+  
+  companyId String?  @db.ObjectId
+  company   Company? @relation(fields: [companyId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   orders Order[]
+}
+
+// ─────────────────────────────────────────────
+// COMPANY (Comercio)
+// ─────────────────────────────────────────────
+model Company {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  nit         String?
+  phone       String?
+  address     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  users       User[]
+  orders      Order[]
 }
 
 // ─────────────────────────────────────────────
@@ -38,17 +70,26 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relación con usuario (comercio)
+  // Relación con usuario que la creó
   userId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id])
 
+  // Relación con la empresa dueña de la orden
+  companyId String @db.ObjectId
+  company   Company @relation(fields: [companyId], references: [id])
+
+  // Dirección de recolección
+  pickupAddress    String
+
   // Destinatario
-  recipientName    String
+  recipientFirstName    String
+  recipientLastName     String
   recipientEmail   String
   recipientPhone   String
   recipientAddress String
-  recipientCity    String
+  recipientMunicipality String
   recipientDepartment String
+  referencePoint   String?
 
   // Detalles de la orden
   deliveryDate DateTime
@@ -73,12 +114,11 @@ model Order {
 // PACKAGE (embedded en Order)
 // ─────────────────────────────────────────────
 type Package {
-  content  String
-  quantity Int
-  weight   Float
-  width    Float
-  height   Float
-  length   Float
+  content      String
+  weightInLbs  Float
+  width        Float
+  height       Float
+  length       Float
 }
 
 // ─────────────────────────────────────────────
@@ -99,4 +139,41 @@ model ShippingCost {
   dayOfWeek DayOfWeek @unique
   cost      Float
   updatedAt DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// PARAMETER (Configuraciones dinámicas)
+// ─────────────────────────────────────────────
+enum ParameterDataType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model Parameter {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  key         String            @unique
+  value       String            // Se guarda como string y se parsea en código
+  dataType    ParameterDataType @default(STRING)
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// UBICACIONES (Departamentos y Municipios)
+// ─────────────────────────────────────────────
+model Department {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  name           String         @unique
+  municipalities Municipality[]
+}
+
+model Municipality {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  departmentId String     @db.ObjectId
+  department   Department @relation(fields: [departmentId], references: [id])
 }

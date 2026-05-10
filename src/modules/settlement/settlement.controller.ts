@@ -23,7 +23,7 @@ Calcula el monto neto a liquidar al comercio aplicando las reglas de negocio:
     `,
   })
   @ApiResponse({ status: 200, description: 'Resumen de liquidación' })
-  calculate(@CurrentUser() user: { id: string }) {
-    return this.settlementService.calculate(user.id);
+  calculate(@CurrentUser() user: { id: string; companyId?: string; role: string }) {
+    return this.settlementService.calculate(user);
   }
 }

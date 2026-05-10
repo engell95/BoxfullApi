@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { OrderStatus } from '@prisma/client';
-
-const COD_COMMISSION_RATE = 0.0001; // 0.01%
-const COD_COMMISSION_MAX = 25;      // Tope máximo USD
+import { OrderStatus, ParameterDataType } from '@prisma/client';
 
 export interface SettlementResult {
   totalOrders: number;
@@ -37,11 +34,35 @@ export class SettlementService {
    * Solo se consideran órdenes DELIVERED para los montos recolectados.
    * Las órdenes PENDING/IN_TRANSIT ya incluyen el costo de envío como egreso.
    */
-  async calculate(userId: string): Promise<SettlementResult> {
+  async calculate(user: { id: string; companyId?: string; role: string }): Promise<SettlementResult> {
+    const where: any = {};
+    if (user.role !== 'ADMIN') {
+      where.companyId = user.companyId;
+    }
+
     const orders = await this.prisma.order.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
     });
+
+    // Obtener parámetros dinámicos de configuración
+    const parameters = await this.prisma.parameter.findMany({
+      where: {
+        key: { in: ['COD_COMMISSION_RATE', 'COD_COMMISSION_MAX'] }
+      }
+    });
+
+    let codCommissionRate = 0.0001; // Default
+    let codCommissionMax = 25;      // Default
+
+    for (const param of parameters) {
+      if (param.key === 'COD_COMMISSION_RATE' && param.dataType === ParameterDataType.NUMBER) {
+        codCommissionRate = parseFloat(param.value) || 0.0001;
+      }
+      if (param.key === 'COD_COMMISSION_MAX' && param.dataType === ParameterDataType.NUMBER) {
+        codCommissionMax = parseFloat(param.value) || 25;
+      }
+    }
 
     const breakdown: OrderSettlement[] = orders.map((order) => {
       // Solo contar monto recolectado si la orden fue entregada
@@ -53,10 +74,10 @@ export class SettlementService {
           ? (order.collectedAmount ?? order.expectedAmount ?? 0)
           : 0;
 
-      // Comisión COD: 0.01% del monto recolectado, tope $25
+      // Comisión COD: calculada dinámicamente
       const commission =
         isDelivered && order.isCOD && collected > 0
-          ? Math.min(collected * COD_COMMISSION_RATE, COD_COMMISSION_MAX)
+          ? Math.min(collected * codCommissionRate, codCommissionMax)
           : 0;
 
       // Liquidación por orden
@@ -66,7 +87,7 @@ export class SettlementService {
 
       return {
         orderId: order.id,
-        recipientName: order.recipientName,
+        recipientName: `${order.recipientFirstName} ${order.recipientLastName}`,
         createdAt: order.createdAt,
         isCOD: order.isCOD,
         expectedAmount: order.expectedAmount,

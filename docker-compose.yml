@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+
+  # ─────────────────────────────────────────────
+  # MongoDB
+  # ─────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: boxful_mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-boxful}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-boxful123}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-boxful}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - boxful_net
+
+  # ─────────────────────────────────────────────
+  # API (NestJS)
+  # ─────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: boxful_api
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3001}:3001'
+    environment:
+      DATABASE_URL: mongodb://${MONGO_USER:-boxful}:${MONGO_PASSWORD:-boxful123}@mongo:27017/${MONGO_DB:-boxful}?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      PORT: 3001
+    depends_on:
+      - mongo
+    networks:
+      - boxful_net
+
+  # ─────────────────────────────────────────────
+  # Seeder (corre una vez y termina)
+  # ─────────────────────────────────────────────
+  seeder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: boxful_seeder
+    command: >
+      sh -c "npx prisma db push --accept-data-loss &&
+             npx ts-node seed/seed.ts"
+    environment:
+      DATABASE_URL: mongodb://${MONGO_USER:-boxful}:${MONGO_PASSWORD:-boxful123}@mongo:27017/${MONGO_DB:-boxful}?authSource=admin
+    depends_on:
+      - mongo
+    networks:
+      - boxful_net
+    restart: 'no'
+
+volumes:
+  mongo_data:
+
+networks:
+  boxful_net:
+    driver: bridge

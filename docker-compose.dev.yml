@@ -1,0 +1,22 @@
+version: '3.9'
+
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Diferencias con producción:
+#   - Usa el target "builder" (tiene devDependencies y ts-node)
+#   - Monta el código fuente para hot reload con --watch
+#   - Expone el puerto de debug 9229
+
+services:
+  api:
+    build:
+      target: builder
+    command: npm run start:dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - '${PORT:-3001}:3001'
+      - '9229:9229'
+    environment:
+      NODE_ENV: development

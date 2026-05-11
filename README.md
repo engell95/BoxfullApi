@@ -43,6 +43,12 @@ Para evitar la vulnerabilidad de emitir tokens de vida infinita, se implementó 
 - **Access Token:** Tiene una vida muy corta (ej. 15 minutos). Es el token que acompaña a todas las peticiones a la API.
 - **Refresh Token:** Tiene una vida más larga (ej. 7 días). Su único propósito es ser enviado al endpoint `/auth/refresh` para generar un nuevo par de tokens una vez que el Access Token ha expirado, permitiendo mantener la sesión activa de forma segura y transparente para el usuario final.
 
+### 4. Trazabilidad y Logs Híbridos (Winston)
+Se integró **Winston** como motor principal para el registro de eventos y errores, configurado con múltiples vías de salida (Transports):
+- **Consola:** Logs a color para el desarrollo en tiempo real.
+- **Rotación de Archivos:** Las advertencias y errores se guardan en la carpeta `/logs`, generando un archivo nuevo por día para evitar saturar el disco.
+- **Base de Datos:** Los errores críticos (HTTP 500) se inyectan automáticamente en la colección `system_logs` de MongoDB para permitir monitoreo profundo sin necesidad de acceder a los archivos del servidor.
+
 ---
 
 ## 📋 Requisitos previos

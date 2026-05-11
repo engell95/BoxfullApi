@@ -1,5 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SettlementService } from './settlement.service';
 import { JwtAuthGuard } from '../../common/guard/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -21,10 +21,14 @@ Calcula el monto neto a liquidar al comercio aplicando las reglas de negocio:
 - El monto neto total puede ser negativo si predominan órdenes sin cobro
     `,
   })
+  @ApiQuery({ name: 'companyId', required: false, description: 'ID del comercio a consultar (Solo útil si eres ADMIN)' })
   @ApiResponse({ status: 200, description: 'Resumen de liquidación' })
   @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
   @ApiResponse({ status: 500, description: 'Internal Server Error' })
-  calculate(@CurrentUser() user: { id: string; companyId?: string; role: string }) {
-    return this.settlementService.calculate(user);
+  calculate(
+    @CurrentUser() user: { id: string; companyId?: string; role: string },
+    @Query('companyId') companyId?: string,
+  ) {
+    return this.settlementService.calculate(user, companyId);
   }
 }

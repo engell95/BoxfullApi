@@ -34,10 +34,17 @@ export class SettlementService {
    * Solo se consideran órdenes DELIVERED para los montos recolectados.
    * Las órdenes PENDING/IN_TRANSIT ya incluyen el costo de envío como egreso.
    */
-  async calculate(user: { id: string; companyId?: string; role: string }): Promise<SettlementResult> {
+  async calculate(
+    user: { id: string; companyId?: string; role: string },
+    targetCompanyId?: string,
+  ): Promise<SettlementResult> {
     const where: any = {};
     if (user.role !== 'ADMIN') {
+      // El comercio solo ve sus propias liquidaciones
       where.companyId = user.companyId;
+    } else if (targetCompanyId) {
+      // Si es ADMIN y especificó un comercio, filtra por ese comercio
+      where.companyId = targetCompanyId;
     }
 
     const orders = await this.prisma.order.findMany({

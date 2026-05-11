@@ -21,6 +21,7 @@ import { FilterOrdersDto } from '../../common/dto/filter-orders.dto';
 import { WebhookUpdateDto } from '../../common/dto/webhook-update.dto';
 import { JwtAuthGuard } from '../../common/guard/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -100,6 +101,7 @@ export class OrdersController {
   // POST /orders/webhook/:id — Webhook externo
   // (sin autenticación JWT, usa secret opcional)
   // ────────────────────────────────────────
+  @Public()
   @Post('webhook/:id')
   @ApiOperation({
     summary:

@@ -15,19 +15,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /**
-   * Este método se ejecuta automáticamente si la firma del token es válida.
-   * El parámetro "payload" contiene la información decodificada del JWT.
-   */
   async validate(payload: any) {
-    // Aquí puedes buscar el usuario en la base de datos (Prisma) usando payload.sub o payload.email
-    // para verificar que el usuario todavía existe y no ha sido desactivado.
-    
+    if (payload.type === 'refresh') {
+      throw new UnauthorizedException('No se puede usar un refresh token para consumir APIs');
+    }
+
+    if (payload.sub === 'APP') {
+      return { id: 'APP', role: 'APP' };
+    }
+
     return { 
       id: payload.sub, 
       email: payload.email, 
       companyId: payload.companyId, 
-      role: payload.role 
+      role: payload.role,
+      firstName: payload.firstName,
+      lastName: payload.lastName
     };
   }
 }

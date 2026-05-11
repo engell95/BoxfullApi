@@ -75,7 +75,14 @@ export class AuthService {
     const tokens = this.generateTokens(payload);
 
     return {
-      user: { id: user.id, email: user.email, role: user.role, company: user.company },
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        company: user.company,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
       ...tokens,
     };
   }
@@ -118,7 +125,14 @@ export class AuthService {
     const tokens = this.generateTokens(payload);
 
     return {
-      user: { id: user.id, email: user.email, role: user.role, company: user.company },
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        company: user.company,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
       ...tokens,
     };
   }

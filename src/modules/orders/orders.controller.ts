@@ -32,10 +32,12 @@ export class OrdersController {
   // POST /orders — Crear orden
   // ────────────────────────────────────────
   @Post()
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Crear nueva orden de envío' })
   @ApiResponse({ status: 201, description: 'Orden creada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Errores de validación (ej. orden COD sin expectedAmount)' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   create(
     @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Body() dto: CreateOrderDto,
@@ -47,12 +49,14 @@ export class OrdersController {
   // GET /orders — Listar órdenes con filtros
   // ────────────────────────────────────────
   @Get()
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Listar órdenes (filtradas por empresa si no es ADMIN)',
   })
   @ApiResponse({ status: 200, description: 'Listado de órdenes' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Parámetros de filtro inválidos' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   findAll(
     @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Query() filters: FilterOrdersDto,
@@ -64,14 +68,18 @@ export class OrdersController {
   // GET /orders/export/csv — Exportar CSV
   // ────────────────────────────────────────
   @Get('export/csv')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Exportar órdenes como archivo CSV' })
+  @ApiOperation({ summary: 'Exportar órdenes como archivo CSV (opcionalmente por IDs)' })
+  @ApiResponse({ status: 200, description: 'Archivo CSV generado' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   async exportCsv(
     @CurrentUser() user: { id: string; companyId?: string; role: string },
+    @Query('ids') ids: string,
     @Res() res: Response,
   ) {
-    const csv = await this.ordersService.exportCsv(user);
+    const idArray = ids ? ids.split(',').map((id) => id.trim()) : [];
+    const csv = await this.ordersService.exportCsv(user, idArray);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
@@ -85,11 +93,12 @@ export class OrdersController {
   // GET /orders/:id — Obtener orden por ID
   // ────────────────────────────────────────
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Obtener detalle de una orden por ID' })
   @ApiResponse({ status: 200, description: 'Detalle de la orden' })
-  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
+  @ApiResponse({ status: 404, description: 'Not Found - Orden no encontrada' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   findOne(
     @CurrentUser() user: { id: string; companyId?: string; role: string },
     @Param('id') id: string,
@@ -108,7 +117,9 @@ export class OrdersController {
       'Webhook: actualizar estado de entrega y monto real recolectado (COD)',
   })
   @ApiResponse({ status: 200, description: 'Orden actualizada' })
-  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Errores de validación' })
+  @ApiResponse({ status: 404, description: 'Not Found - Orden no encontrada' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   webhookUpdate(
     @Param('id') id: string,
     @Body() dto: WebhookUpdateDto,

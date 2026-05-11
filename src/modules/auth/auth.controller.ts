@@ -18,6 +18,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login a nivel de aplicación (retorna token base)' })
   @ApiResponse({ status: 200, description: 'Token de aplicación generado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Petición malformada' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Credenciales inválidas' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   appLogin(@Body() dto: AppLoginDto) {
     return this.authService.appLogin(dto);
   }
@@ -27,6 +30,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refrescar tokens usando un refresh token' })
   @ApiResponse({ status: 200, description: 'Nuevos tokens generados' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Petición malformada' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Refresh token inválido o expirado' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   refreshToken(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);
   }
@@ -35,7 +41,10 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Registrar nuevo usuario (comercio)' })
   @ApiResponse({ status: 201, description: 'Usuario registrado exitosamente' })
-  @ApiResponse({ status: 409, description: 'El email ya está registrado' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Errores de validación' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Falta App Token' })
+  @ApiResponse({ status: 409, description: 'Conflict - El email ya está registrado' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -45,7 +54,9 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Iniciar sesión' })
   @ApiResponse({ status: 200, description: 'Login exitoso, retorna JWT' })
-  @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Petición malformada' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Credenciales inválidas o falta App Token' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }

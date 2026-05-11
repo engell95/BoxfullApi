@@ -10,8 +10,38 @@ API REST construida con **NestJS**, **MongoDB** y **Prisma ORM** para la platafo
 - **Framework:** NestJS
 - **Base de datos:** MongoDB
 - **ORM:** Prisma
-- **Autenticación:** JWT (JSON Web Tokens)
+- **Autenticación:** JWT (Doble capa: App Token y User Token + Refresh Tokens)
 - **Documentación:** Swagger / OpenAPI
+
+---
+
+## 🏗️ Arquitectura Técnica y Estándares
+
+El backend ha sido diseñado siguiendo estándares de la industria para garantizar seguridad, escalabilidad y una integración limpia con clientes web y móviles:
+
+### 1. Manejo de Errores Estandarizado (RFC 9457)
+La API implementa el estándar **RFC 9457 (Problem Details for HTTP APIs)**. Cualquier excepción (errores de validación de DTOs, problemas de autenticación o caídas del servidor) es interceptada por un filtro global y formateada en el tipo de contenido `application/problem+json`.
+Esto permite a los clientes consumir una estructura de error predecible y universal:
+```json
+{
+  "type": "https://httpstatuses.com/400",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "recipientEmail must be an email",
+  "instance": "/api/v1/orders",
+  "timestamp": "2026-05-10T12:00:00.000Z"
+}
+```
+
+### 2. Autenticación B2B de Doble Capa (Client Auth & User Auth)
+Se implementó un patrón de seguridad de dos niveles para evitar accesos no autorizados a las vías de registro y logueo:
+- **App Token (Client Credentials):** El frontend (o aplicación cliente) debe primero autenticarse enviando un `APP_ID` y `APP_SECRET` para obtener un Token de Aplicación. Este token es el único que da permisos para ejecutar el registro (`/auth/register`) o inicio de sesión (`/auth/login`).
+- **User Token:** Una vez el usuario inicia sesión con éxito, la API emite el token final del usuario.
+
+### 3. Ciclo de Vida de Tokens (Access & Refresh Tokens)
+Para evitar la vulnerabilidad de emitir tokens de vida infinita, se implementó el estándar de Refresh Tokens:
+- **Access Token:** Tiene una vida muy corta (ej. 15 minutos). Es el token que acompaña a todas las peticiones a la API.
+- **Refresh Token:** Tiene una vida más larga (ej. 7 días). Su único propósito es ser enviado al endpoint `/auth/refresh` para generar un nuevo par de tokens una vez que el Access Token ha expirado, permitiendo mantener la sesión activa de forma segura y transparente para el usuario final.
 
 ---
 
@@ -20,200 +50,121 @@ API REST construida con **NestJS**, **MongoDB** y **Prisma ORM** para la platafo
 - Node.js >= 18
 - npm >= 9
 - MongoDB (local o Atlas)
+- Docker Desktop (Opcional, pero recomendado)
 
 ---
 
 ## 🐳 Instalación con Docker (recomendado)
 
-```bash
-# 1. Clonar el repositorio
-git clone <repo-url>
-cd boxful-backend
+Es la forma más rápida de probar el proyecto ya que levanta la base de datos automáticamente.
 
-# 2. Copiar variables de entorno
-cp .env.example .env
-# Edita .env si quieres cambiar usuario/contraseña de Mongo o JWT_SECRET
+1. Clona el repositorio y asegúrate de tener un archivo `.env` en la raíz (puedes copiar el contenido de `.env.example`).
+2. Ejecuta el comando para levantar los servicios:
+   ```bash
+   docker-compose up --build -d
+   ```
+3. Docker se encargará de:
+   - Levantar MongoDB con volumen persistente.
+   - Construir y correr la API de NestJS.
+   - Ejecutar el seeder (`npm run seed`) automáticamente para llenar la BD con parámetros, usuarios base, órdenes y ubicaciones de Nicaragua.
 
-# 3. Levantar todo (MongoDB + API + Seeder)
-docker compose up --build
-```
-
-Eso es todo. Docker se encarga de:
-- Levantar MongoDB con volumen persistente
-- Construir y correr la API en NestJS
-- Ejecutar el seeder automáticamente (costos de envío por día)
-
-La API queda disponible en `http://localhost:3001`
+La API quedará disponible en `http://localhost:3001` y Swagger en `http://localhost:3001/api/docs`.
 
 ---
 
-### 🐳 Desarrollo con hot reload
+## ⚙️ Instalación sin Docker (Modo Local)
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
+Si prefieres correrlo localmente sin Docker, necesitas tener un MongoDB corriendo (Local o Atlas).
 
-Monta el código fuente como volumen, los cambios se reflejan sin rebuild.
-
----
-
-### ⚙️ Instalación sin Docker
-
-```bash
-# Requiere MongoDB corriendo localmente o una URL de Atlas
-
-npm install
-cp .env.example .env
-# Editar DATABASE_URL en .env
-
-npx prisma generate
-npx prisma db push
-npm run seed
-npm run start:dev
-```
+1. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+2. Modifica tu archivo `.env` para que la variable `DATABASE_URL` apunte a tu MongoDB (Descomenta la línea `# DATABASE_URL=mongodb://localhost:27017/boxful`).
+3. Genera el cliente de Prisma:
+   ```bash
+   npx prisma generate
+   ```
+4. Ejecuta el Seeder para poblar la BD:
+   ```bash
+   npm run seed
+   ```
+5. Inicia la aplicación en modo desarrollo:
+   ```bash
+   npm run start:dev
+   ```
 
 ---
 
-## 🌍 Variables de entorno
+## 🌍 Variables de entorno (`.env`)
 
 ```env
-# .env.example
-DATABASE_URL="mongodb+srv://<user>:<password>@cluster.mongodb.net/boxful"
-JWT_SECRET="your_super_secret_key"
-JWT_EXPIRES_IN="7d"
 PORT=3001
+JWT_SECRET=boxful_super_secret_dev_key
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Credenciales para el App Token
+APP_ID=boxful-frontend
+APP_SECRET=secret123
+
+# MongoDB
+MONGO_USER=boxful
+MONGO_PASSWORD=boxful123
+MONGO_DB=boxful
+DATABASE_URL=mongodb://boxful:boxful123@mongo:27017/boxful?authSource=admin
 ```
 
 ---
 
-## 📂 Estructura del proyecto
+## 🔑 Flujo de Autenticación y Seguridad
 
-```
-src/
-├── auth/                  # Módulo de autenticación (JWT)
-│   ├── auth.controller.ts
-│   ├── auth.service.ts
-│   ├── auth.module.ts
-│   ├── dto/
-│   │   ├── register.dto.ts
-│   │   └── login.dto.ts
-│   └── guards/
-│       └── jwt-auth.guard.ts
-├── orders/                # Módulo de órdenes
-│   ├── orders.controller.ts
-│   ├── orders.service.ts
-│   ├── orders.module.ts
-│   └── dto/
-│       ├── create-order.dto.ts
-│       ├── filter-orders.dto.ts
-│       └── webhook-update.dto.ts
-├── shipping-costs/        # Módulo de costos de envío
-│   ├── shipping-costs.module.ts
-│   └── shipping-costs.service.ts
-├── settlement/            # Módulo de liquidación (punto extra)
-│   ├── settlement.module.ts
-│   └── settlement.service.ts
-├── prisma/                # Servicio Prisma
-│   ├── prisma.module.ts
-│   └── prisma.service.ts
-├── common/                # Guards, decorators, interceptors
-│   └── decorators/
-│       └── current-user.decorator.ts
-├── app.module.ts
-└── main.ts
-prisma/
-└── schema.prisma
-seed/
-└── seed.ts
-```
+La aplicación está protegida globalmente. El único endpoint 100% público es el **App Login**:
+
+1. **Obtener App Token**: Llama a `POST /auth/app-login` enviando `appId` y `appSecret`. Recibirás un Token de Aplicación.
+2. **Login/Registro**: Usa ese App Token como Bearer Auth para poder consumir `POST /auth/login` o `POST /auth/register`. 
+3. **User Token**: El login te devolverá un Token de Usuario (Access y Refresh). Usa este User Access Token para todas las demás rutas.
+4. **Refresh Token**: Cuando el Access Token expire (15 min), usa `POST /auth/refresh` enviando tu Refresh Token para obtener uno nuevo.
 
 ---
 
-## 🔑 Endpoints
+## 🛣️ Endpoints Principales
+
+Puedes probar todos estos endpoints directamente desde Swagger: `http://localhost:3001/api/docs`
 
 ### Auth
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/auth/register` | Registro de usuario |
-| POST | `/auth/login` | Inicio de sesión |
+| Método | Ruta | Descripción | Auth Requerido |
+|--------|------|-------------|----------------|
+| POST | `/auth/app-login` | Genera Token de Aplicación | ❌ Público |
+| POST | `/auth/refresh` | Refresca Tokens | ❌ Público |
+| POST | `/auth/register` | Registro de usuario | 🛡️ App Token |
+| POST | `/auth/login` | Inicio de sesión | 🛡️ App Token |
 
 ### Orders
-| Método | Ruta | Descripción | Auth |
-|--------|------|-------------|------|
-| POST | `/orders` | Crear orden | ✅ |
-| GET | `/orders` | Listar órdenes (con filtros) | ✅ |
-| GET | `/orders/:id` | Obtener orden por ID | ✅ |
-| GET | `/orders/export/csv` | Exportar órdenes a CSV | ✅ |
-| POST | `/orders/webhook/:id` | Webhook actualización de entrega | — |
+| Método | Ruta | Descripción | Auth Requerido |
+|--------|------|-------------|----------------|
+| POST | `/orders` | Crear orden | ✅ User Token |
+| GET | `/orders` | Listar órdenes (con filtros) | ✅ User Token |
+| GET | `/orders/:id` | Obtener orden por ID | ✅ User Token |
+| GET | `/orders/export/csv` | Exportar órdenes a CSV | ✅ User Token |
+| POST | `/orders/webhook/:id`| Webhook actualización de entrega | ❌ Público |
 
-### Settlement (Punto Extra)
-| Método | Ruta | Descripción | Auth |
-|--------|------|-------------|------|
-| GET | `/settlement` | Calcular liquidación del comercio | ✅ |
+### Locations (Nicaragua)
+| Método | Ruta | Descripción | Auth Requerido |
+|--------|------|-------------|----------------|
+| GET | `/locations/departments` | Listar departamentos | ✅ User Token |
+| GET | `/locations/departments/:id/municipalities` | Listar municipios | ✅ User Token |
 
----
-
-## 📦 Filtros disponibles en GET /orders
-
-```
-GET /orders?status=DELIVERED&startDate=2024-01-01&endDate=2024-12-31&search=Juan
-```
-
-| Parámetro | Tipo | Descripción |
-|-----------|------|-------------|
-| `status` | string | Estado de la orden |
-| `startDate` | ISO string | Fecha desde |
-| `endDate` | ISO string | Fecha hasta |
-| `search` | string | Busca en nombre/email del destinatario |
-| `page` | number | Página (default: 1) |
-| `limit` | number | Resultados por página (default: 20) |
+### Settlement
+| Método | Ruta | Descripción | Auth Requerido |
+|--------|------|-------------|----------------|
+| GET | `/settlement` | Calcular liquidación del comercio | ✅ User Token |
 
 ---
 
-## 🌱 Seeders
+## 📐 Reglas de Liquidación
 
-El seeder crea los costos base de envío por día de la semana en la base de datos:
-
-```bash
-npm run seed
-```
-
-Costos por defecto (editables directo en MongoDB):
-| Día | Costo |
-|-----|-------|
-| Lunes | $5.00 |
-| Martes | $5.00 |
-| Miércoles | $5.00 |
-| Jueves | $5.00 |
-| Viernes | $6.00 |
-| Sábado | $7.00 |
-| Domingo | $8.00 |
-
----
-
-## 📐 Reglas de Liquidación (Punto Extra)
-
+Los parámetros de liquidación viven en la base de datos y pueden ser editados dinámicamente sin tocar código.
 - **Orden COD:** `Monto Recolectado - Costo de Envío - Comisión COD`
-- **Comisión COD:** 0.01% del monto recolectado, tope máximo $25 USD
+- **Comisión COD:** Configurable (por defecto 0.01% del monto recolectado, tope máximo $25 USD)
 - **Orden sin cobro (No COD):** `-(Costo de Envío)` (valor negativo)
-
----
-
-## 📖 Documentación Swagger
-
-Una vez corriendo el servidor, accede a:
-
-```
-http://localhost:3001/api/docs
-```
-
----
-
-## 🧪 Esfuerzos extras
-
-- Paginación en listado de órdenes
-- Exportación a CSV
-- Webhook para actualización de estado con monto real
-- Módulo de liquidación con reglas de negocio COD
-- Documentación completa con Swagger
-- Seeders de costos de envío configurables por día

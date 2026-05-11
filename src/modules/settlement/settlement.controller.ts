@@ -10,7 +10,6 @@ export class SettlementController {
   constructor(private readonly settlementService: SettlementService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Calcular liquidación del comercio',
@@ -23,6 +22,8 @@ Calcula el monto neto a liquidar al comercio aplicando las reglas de negocio:
     `,
   })
   @ApiResponse({ status: 200, description: 'Resumen de liquidación' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - User Token inválido' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   calculate(@CurrentUser() user: { id: string; companyId?: string; role: string }) {
     return this.settlementService.calculate(user);
   }

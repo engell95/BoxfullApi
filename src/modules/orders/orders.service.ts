@@ -177,10 +177,17 @@ export class OrdersService {
   // ────────────────────────────────────────────
   // EXPORT CSV
   // ────────────────────────────────────────────
-  async exportCsv(user: { id: string; companyId?: string; role: string }): Promise<string> {
+  async exportCsv(
+    user: { id: string; companyId?: string; role: string },
+    ids?: string[]
+  ): Promise<string> {
     const where: any = {};
     if (user.role !== 'ADMIN') {
       where.companyId = user.companyId;
+    }
+
+    if (ids && ids.length > 0) {
+      where.id = { in: ids };
     }
 
     const orders = await this.prisma.order.findMany({

@@ -6,6 +6,7 @@ import { LoginDto } from '../../common/dto/login.dto';
 import { AppLoginDto } from '../../common/dto/app-login.dto';
 import { RefreshTokenDto } from '../../common/dto/refresh-token.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { AllowAppToken } from '../../common/decorators/allow-app-token.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Auth')
@@ -39,6 +40,7 @@ export class AuthController {
 
   @Post('register')
   @ApiBearerAuth('access-token')
+  @AllowAppToken()
   @ApiOperation({ summary: 'Registrar nuevo usuario (comercio)' })
   @ApiResponse({ status: 201, description: 'Usuario registrado exitosamente' })
   @ApiResponse({ status: 400, description: 'Bad Request - Errores de validación' })
@@ -52,6 +54,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
+  @AllowAppToken()
   @ApiOperation({ summary: 'Iniciar sesión' })
   @ApiResponse({ status: 200, description: 'Login exitoso, retorna JWT' })
   @ApiResponse({ status: 400, description: 'Bad Request - Petición malformada' })

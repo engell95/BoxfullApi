@@ -30,7 +30,7 @@ export class SettlementService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Calcula la liquidación para el comercio (usuario autenticado).
+   * Calcula la liquidación para el comercio
    * Solo se consideran órdenes DELIVERED para los montos recolectados.
    * Las órdenes PENDING/IN_TRANSIT ya incluyen el costo de envío como egreso.
    */
@@ -59,8 +59,8 @@ export class SettlementService {
       }
     });
 
-    let codCommissionRate = 0.0001; // Default
-    let codCommissionMax = 25;      // Default
+    let codCommissionRate = 0.0001;
+    let codCommissionMax = 25;
 
     for (const param of parameters) {
       if (param.key === 'COD_COMMISSION_RATE' && param.dataType === ParameterDataType.NUMBER) {
@@ -81,7 +81,7 @@ export class SettlementService {
           ? (order.collectedAmount ?? order.expectedAmount ?? 0)
           : 0;
 
-      // Comisión COD: calculada dinámicamente
+      // Comisión COD
       const commission =
         isDelivered && order.isCOD && collected > 0
           ? Math.min(collected * codCommissionRate, codCommissionMax)

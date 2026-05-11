@@ -39,10 +39,7 @@ export class OrdersService {
     const order = await this.prisma.order.create({
       data: {
         userId: user.id,
-        // Si un ADMIN crea una orden y no pasa companyId (por ahora simplificado a usar un companyId por defecto o requerirlo en DTO en el futuro)
-        // Por seguridad, usaremos el companyId del DTO si es admin, de lo contrario el del token. Pero como DTO no lo tiene, usaremos user.companyId!
-        // Asumiendo que el ADMIN debe de tener forma de asignar empresa, pero por simplicidad:
-        companyId: user.companyId ?? user.id, // Hack temporal por si ADMIN crea
+        companyId: user.companyId,
         pickupAddress: dto.pickupAddress,
         recipientFirstName: dto.recipientFirstName,
         recipientLastName: dto.recipientLastName,
@@ -100,7 +97,7 @@ export class OrdersService {
       this.prisma.order.count({ where }),
       this.prisma.order.findMany({
         where,
-        orderBy: { createdAt: 'desc' }, // descendente como pide el requerimiento
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -164,7 +161,6 @@ export class OrdersService {
       where: { id: orderId },
       data: {
         status: dto.status as OrderStatus,
-        // Guardar monto real recolectado si viene en el webhook
         ...(dto.collectedAmount !== undefined && {
           collectedAmount: dto.collectedAmount,
         }),
@@ -229,7 +225,7 @@ export class OrdersService {
         `"${o.referencePoint ?? ''}"`,
         new Date(o.deliveryDate).toLocaleDateString('es-SV'),
         o.status,
-        o.isCOD ? 'Sí' : 'No',
+        o.isCOD ? 'Si' : 'No',
         o.expectedAmount ?? '',
         o.collectedAmount ?? '',
         o.shippingCost,

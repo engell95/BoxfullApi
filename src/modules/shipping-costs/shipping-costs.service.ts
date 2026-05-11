@@ -30,7 +30,7 @@ export class ShippingCostsService {
 
     if (!shippingCost) {
       throw new NotFoundException(
-        `No se encontró configuración de costo para el día ${dayEnum}. Ejecuta el seeder: npm run seed`,
+        `No se encontró configuración de costo para el día ${dayEnum}.`,
       );
     }
 

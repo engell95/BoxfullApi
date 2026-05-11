@@ -81,21 +81,32 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { company: true },
-    });
+    console.log(`[LOGIN ATTEMPT] Email: ${dto.email}`);
+    
+    let user;
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+        include: { company: true },
+      });
+    } catch (dbError) {
+      console.error('🔥 PRISMA ERROR EN LOGIN:', dbError);
+      throw dbError;
+    }
 
     if (!user) {
+      console.log(`[LOGIN FAILED] Usuario no encontrado en la BD: ${dto.email}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const passwordMatch = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatch) {
+      console.log(`[LOGIN FAILED] Contraseña incorrecta para el usuario: ${dto.email}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    console.log(`[LOGIN SUCCESS] Usuario autenticado: ${dto.email}`);
     const payload = { 
       sub: user.id, 
       email: user.email,

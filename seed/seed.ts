@@ -41,28 +41,40 @@ async function main() {
   console.log('🌱 Iniciando seeder de costos de envío...\n');
 
   for (const entry of SHIPPING_COSTS) {
-    const result = await prisma.shippingCost.upsert({
-      where: { dayOfWeek: entry.dayOfWeek },
-      update: { cost: entry.cost },
-      create: { dayOfWeek: entry.dayOfWeek, cost: entry.cost },
-    });
-
+    const exists = await prisma.shippingCost.findUnique({ where: { dayOfWeek: entry.dayOfWeek } });
+    let result;
+    if (exists) {
+      result = await prisma.shippingCost.update({
+        where: { id: exists.id },
+        data: { cost: entry.cost },
+      });
+    } else {
+      result = await prisma.shippingCost.create({
+        data: { dayOfWeek: entry.dayOfWeek, cost: entry.cost },
+      });
+    }
     console.log(`✅ ${result.dayOfWeek.padEnd(12)} → $${result.cost.toFixed(2)}`);
   }
 
   console.log('\n⚙️ Iniciando seeder de parámetros globales...\n');
   for (const param of PARAMETERS) {
-    const result = await prisma.parameter.upsert({
-      where: { key: param.key },
-      update: { value: param.value, dataType: param.dataType, description: param.description },
-      create: {
-        key: param.key,
-        value: param.value,
-        dataType: param.dataType,
-        description: param.description,
-      },
-    });
-
+    const exists = await prisma.parameter.findUnique({ where: { key: param.key } });
+    let result;
+    if (exists) {
+      result = await prisma.parameter.update({
+        where: { id: exists.id },
+        data: { value: param.value, dataType: param.dataType, description: param.description },
+      });
+    } else {
+      result = await prisma.parameter.create({
+        data: {
+          key: param.key,
+          value: param.value,
+          dataType: param.dataType,
+          description: param.description,
+        },
+      });
+    }
     console.log(`✅ ${result.key.padEnd(25)} → ${result.value}`);
   }
 
@@ -87,14 +99,12 @@ async function main() {
   ];
 
   for (const data of NICARAGUA_DATA) {
-    const dept = await prisma.department.upsert({
-      where: { name: data.department },
-      update: {},
-      create: { name: data.department },
-    });
+    let dept = await prisma.department.findUnique({ where: { name: data.department } });
+    if (!dept) {
+      dept = await prisma.department.create({ data: { name: data.department } });
+    }
 
     for (const muni of data.municipalities) {
-      // Find first, to not duplicate if run multiple times without deleting
       const existingMuni = await prisma.municipality.findFirst({
         where: { name: muni, departmentId: dept.id },
       });
@@ -111,47 +121,60 @@ async function main() {
   const hashedPassword = await bcrypt.hash('password123', 10);
 
   // 1. Crear Administrador del Sistema
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@boxful.com' },
-    update: {},
-    create: {
-      firstName: 'Admin',
-      lastName: 'Sistema',
-      email: 'admin@boxful.com',
-      password: hashedPassword,
-      role: Role.ADMIN,
-    },
-  });
-  console.log(`✅ Admin creado: ${adminUser.email}`);
+  let adminUser = await prisma.user.findUnique({ where: { email: 'admin@boxful.com' } });
+  if (adminUser) {
+    adminUser = await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { password: hashedPassword },
+    });
+  } else {
+    adminUser = await prisma.user.create({
+      data: {
+        firstName: 'Admin',
+        lastName: 'Sistema',
+        email: 'admin@boxful.com',
+        password: hashedPassword,
+        role: Role.ADMIN,
+      },
+    });
+  }
+  console.log(`✅ Admin creado/actualizado: ${adminUser.email}`);
 
   // 2. Crear Empresa
-  const company = await prisma.company.upsert({
-    where: { id: '000000000000000000000001' }, // Dummy ObjectId
-    update: {},
-    create: {
-      name: 'Mi Comercio S.A. de C.V.',
-      nit: '1234-567890-123-1',
-      address: 'San Salvador, El Salvador',
-      phone: '+503 2222 2222',
-    },
-  });
+  let company = await prisma.company.findFirst({ where: { nit: '1234-567890-123-1' } });
+  if (!company) {
+    company = await prisma.company.create({
+      data: {
+        name: 'Mi Comercio S.A. de C.V.',
+        nit: '1234-567890-123-1',
+        address: 'San Salvador, El Salvador',
+        phone: '+503 2222 2222',
+      },
+    });
+  }
   console.log(`✅ Empresa creada: ${company.name}`);
 
   // 3. Crear Usuario Empresa (Owner)
-  const companyUser = await prisma.user.upsert({
-    where: { email: 'comercio@boxful.com' },
-    update: {},
-    create: {
-      firstName: 'Dueño',
-      lastName: 'Comercio',
-      whatsapp: '+503 7000 0000',
-      email: 'comercio@boxful.com',
-      password: hashedPassword,
-      role: Role.COMPANY_OWNER,
-      companyId: company.id,
-    },
-  });
-  console.log(`✅ Usuario de empresa creado: ${companyUser.email}`);
+  let companyUser = await prisma.user.findUnique({ where: { email: 'comercio@boxful.com' } });
+  if (companyUser) {
+    companyUser = await prisma.user.update({
+      where: { id: companyUser.id },
+      data: { password: hashedPassword },
+    });
+  } else {
+    companyUser = await prisma.user.create({
+      data: {
+        firstName: 'Dueño',
+        lastName: 'Comercio',
+        whatsapp: '+503 7000 0000',
+        email: 'comercio@boxful.com',
+        password: hashedPassword,
+        role: Role.COMPANY_OWNER,
+        companyId: company.id,
+      },
+    });
+  }
+  console.log(`✅ Usuario de empresa creado/actualizado: ${companyUser.email}`);
 
   // 4. Crear Órdenes de prueba
   console.log('\n📦 Creando órdenes de prueba...');
